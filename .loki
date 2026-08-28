@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+# robot_lab-sandbox — an attempt to keep robots inside a fence
+
+import_up "repo_dev.loki"
+
+class Tasks
+  @@gem_name ||= "robot_lab-sandbox".freeze
+
+  header "robot_lab-sandbox v#{gem_version} — a fence around the robots"
+end
