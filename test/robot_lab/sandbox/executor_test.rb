@@ -26,7 +26,7 @@ module RobotLab
 
         RobotLab.config.sandbox.enabled = true
         tool   = ScriptTool.from_path(FIXTURE_SCRIPT)
-        output = tool.call({})
+        output = tool.call
         assert_includes output, "Hello from AgentSkills script!"
       ensure
         RobotLab.config.sandbox.enabled = false
