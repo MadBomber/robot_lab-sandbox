@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Ruby 3.2+ (per the gemspec's `required_ruby_version`)
+- Ruby 4.0.9+ (per the gemspec's `required_ruby_version`)
 - `robot_lab` — `robot_lab/sandbox` requires `RobotLab::ScriptTool` to already
   be defined, so `robot_lab` must be `require`d first.
 - macOS, if you want real OS-level confinement. On other platforms the gem
