@@ -19,6 +19,23 @@ module RobotLab
       refute Sandbox.enabled?(Object.new)
     end
 
+    # ROBOT_LAB_SANDBOX__ENABLED=true arrives as the String "true".
+    def test_enabled_accepts_env_string_forms
+      %w[true TRUE 1 yes on].each { |flag| assert Sandbox.enabled?(enabled_config(flag)), flag }
+      ["false", "0", "no", "off", "", nil].each { |flag| refute Sandbox.enabled?(enabled_config(flag)), flag.inspect }
+    end
+
+    def test_enabled_returns_strict_booleans
+      assert_equal true,  Sandbox.enabled?(enabled_config("yes"))
+      assert_equal false, Sandbox.enabled?(enabled_config("no"))
+      assert_equal false, Sandbox.enabled?(Struct.new(:sandbox).new(nil))
+    end
+
+    # An unrecognized value confines rather than silently running unconfined.
+    def test_enabled_treats_unrecognized_value_as_on
+      assert Sandbox.enabled?(enabled_config("enabled"))
+    end
+
     def test_macos_matches_platform
       assert_equal RUBY_PLATFORM.include?("darwin"), Sandbox.macos?
     end

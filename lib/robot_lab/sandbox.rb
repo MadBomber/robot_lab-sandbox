@@ -22,9 +22,13 @@ module RobotLab
 
     module_function
 
-    # @return [Boolean] whether sandboxing is turned on in config
+    # @return [Boolean] whether sandboxing is turned on in config. Accepts the
+    #   String forms an environment variable delivers ("true"/"1"/"yes" on,
+    #   "false"/"0"/"no"/"" off); an unrecognized value turns confinement ON,
+    #   the restrictive reading.
     def enabled?(config = RobotLab.config)
-      config.respond_to?(:sandbox) && config.sandbox && config.sandbox.enabled == true
+      section = config.respond_to?(:sandbox) ? config.sandbox : nil
+      section ? Coerce.truthy?(section.enabled, ambiguous: true) : false
     end
 
     def macos?
@@ -59,6 +63,10 @@ module RobotLab
   end
 end
 
+require_relative "sandbox/coerce"
+require_relative "sandbox/ceiling"
+require_relative "sandbox/paths"
+require_relative "sandbox/grant"
 require_relative "sandbox/seatbelt"
 require_relative "sandbox/null"
 require_relative "sandbox/executor"

@@ -45,10 +45,15 @@ intersection of that declaration and the config ceiling above. See
 - **macOS** — each script is wrapped in a generated deny-by-default
   `sandbox-exec` (Seatbelt) profile derived from the effective grant. `$HOME`
   is never implicitly readable, so SSH keys and cloud credentials stay out of
-  reach unless a path under `$HOME` is explicitly granted.
+  reach unless a path under `$HOME` is explicitly granted. A fixed set of
+  system locations (`/usr`, `/bin`, `/sbin`, `/System`, `/Library`, `/opt`,
+  `/private/etc`, `/dev`, `/var/select`) and the skill's own directory are
+  always readable, wherever the skill lives, and file *metadata* (not
+  contents) is visible on any path.
 - **Other platforms** — a passthrough (`RobotLab::Sandbox::Null`), with a
   one-time warning that confinement is macOS-only.
-- **`trust: core` skills** — always a passthrough, regardless of platform.
+- **`trust: core` skills** — always a passthrough, regardless of platform
+  (only the timeout still applies).
 
 OS-level confinement is therefore best-effort and platform-specific; it is
 never a hard dependency of `robot_lab` core.
@@ -57,7 +62,7 @@ never a hard dependency of `robot_lab` core.
 
 ```bash
 bundle exec rake test        # Run full test suite
-bundle exec rake quality     # Tests + coverage + RuboCop + Flog + Flay
+asgard quality               # All quality gates (tests + coverage, RuboCop, Flog, Flay, Reek, ...)
 bin/console                  # IRB session with the gem loaded
 ```
 

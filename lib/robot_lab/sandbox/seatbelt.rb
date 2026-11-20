@@ -71,25 +71,10 @@ module RobotLab
         file.path
       end
 
-      # Resolve to the real (symlink-free) path the kernel matches against. macOS
-      # symlinks /tmp -> /private/tmp, /var -> /private/var, etc., so logical
-      # paths would never match. For not-yet-existing write targets, resolve the
-      # nearest existing ancestor and re-append the remainder.
+      # Resolve each path to the real (symlink-free) form the kernel matches
+      # against (see {Paths.real}); unresolvable paths are dropped.
       def canonicalize(paths)
-        Array(paths).map { |p| real_path(File.expand_path(p.to_s)) }.compact.uniq
-      end
-
-      def real_path(expanded)
-        existing = expanded
-        rest     = []
-        until File.exist?(existing) || existing == "/"
-          rest.unshift(File.basename(existing))
-          existing = File.dirname(existing)
-        end
-        real = File.realpath(existing)
-        rest.empty? ? real : File.join(real, *rest)
-      rescue StandardError
-        expanded
+        Array(paths).filter_map { |p| Paths.real(p) }.uniq
       end
 
       def read_rule(paths)
