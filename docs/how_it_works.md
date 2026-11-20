@@ -59,17 +59,19 @@ time; that's this gem's job from here down.
 ## `Sandbox::Executor` — What Actually Runs
 
 ```ruby
-def self.call(cmd, capabilities:, skill_dir:)
+module_function
+
+def call(cmd, capabilities:, skill_dir:)
   unless Sandbox.enabled?
     output, status = Open3.capture2e(*cmd)
     return RobotLab::ScriptTool.format_result(output, status)
   end
 
-  grant   = capabilities.intersect(Capabilities.ceiling)
+  grant   = Grant.resolve(capabilities, Ceiling.build)
   sandbox = Sandbox.for(grant, skill_dir: skill_dir)
   begin
     output, status = run_with_timeout(sandbox.wrap(cmd), grant.timeout)
-    RobotLab::ScriptTool.format_result(output, status)
+    format_result(output, status)
   ensure
     sandbox.cleanup
   end
@@ -77,7 +79,8 @@ end
 ```
 
 Two paths, gated by `Sandbox.enabled?` (which reads `config.sandbox.enabled`,
-default `false`):
+default `false`, accepting the string forms an environment variable
+delivers — see [Configuration](configuration.md#the-sandbox-ceiling)):
 
 1. **Disabled** — identical to core's own unconfined path. Loading this gem
    with `sandbox.enabled: false` changes nothing observable.
@@ -85,12 +88,16 @@ default `false`):
    ∩ the config ceiling, see [Configuration](configuration.md#the-intersection)),
    picks a strategy via `Sandbox.for`, wraps the command, runs it under a
    timeout, and always calls `sandbox.cleanup` in an `ensure` — even if the
-   run raised or timed out.
+   run raised or timed out. `Executor.format_result` is core's
+   `ScriptTool.format_result` plus one case: a process that died from a
+   signal is reported as `"Error (killed by signal N):\n<output>"`.
 
 ## Strategy Selection: `Sandbox.for`
 
 ```ruby
-def self.for(grant, skill_dir:, macos: macos?)
+module_function
+
+def for(grant, skill_dir:, macos: macos?)
   return Null.new if grant.core?
   return Seatbelt.new(grant, skill_dir: skill_dir) if macos
 
@@ -156,6 +163,10 @@ Built from three pieces:
 | **The grant** | `file-read*` on `Seatbelt::SYSTEM_READ` (`/usr /bin /sbin /System /Library /opt /private/etc /dev /var/select`) plus the skill directory plus the grant's `fs_read`; `file-write*` on `Seatbelt::DEV_WRITE` (`/dev/null /dev/stdout /dev/stderr /dev/dtracehelper /dev/tty`) plus the grant's `fs_write`; `network*` only when `grant.network` is true. |
 
 `$HOME` is never in any of these lists — it is never implicitly readable.
+The exceptions are the skill directory itself (always granted, even when it
+lives under `$HOME`), file *metadata* (`file-read-metadata` is allowed on
+every path, so a confined script can `stat` any file but not read or list
+it), and whatever `bsd.sb` itself allows (e.g. `.CFUserTextEncoding`).
 See [Troubleshooting](troubleshooting.md#interpreter-installed-under-home-is-invisible)
 for the direct consequence of that.
 
@@ -166,16 +177,22 @@ into the profile:
 
 ```ruby
 def canonicalize(paths)
-  Array(paths).map { |p| real_path(File.expand_path(p.to_s)) }.compact.uniq
+  Array(paths).filter_map { |p| Paths.real(p) }.uniq
 end
 ```
 
 This matters because macOS symlinks `/tmp` → `/private/tmp`, `/var` →
 `/private/var`, etc. — the kernel matches Seatbelt rules against the *real*
 path, so a rule written against the logical `/tmp/...` path would silently
-never match. For a write target that doesn't exist yet, `real_path` walks up
+never match. For a write target that doesn't exist yet, `Paths.real` walks up
 to the nearest existing ancestor, resolves *that*, and re-appends the
-non-existent remainder.
+non-existent remainder. A path that cannot be resolved (a symlink loop, a
+dangling symlink) yields `nil` and is left out of the profile.
+
+The same resolution guards the grant itself: `Grant.resolve` only keeps a
+declared path whose *real* location is inside a real ceiling root, so a
+symlink under the ceiling that points elsewhere is dropped before a profile
+is ever generated (see [Configuration](configuration.md#the-intersection)).
 
 ### Lifecycle
 
@@ -187,37 +204,65 @@ even when the script raises or times out.
 ## Timeout Enforcement
 
 `Executor.run_with_timeout(cmd, timeout)` runs the (possibly Seatbelt-wrapped)
-command in its own process group and reads combined stdout+stderr until
-`timeout` seconds elapse:
+command in its own process group and bounds the **whole execution** — the
+process itself, not just its output — at `timeout` seconds:
 
 ```ruby
-def self.run_with_timeout(cmd, timeout)
-  Open3.popen2e(*cmd, pgroup: true) do |stdin, out, wait|
+module_function
+
+def run_with_timeout(cmd, timeout)
+  limit = Coerce.duration(timeout)
+  Open3.popen2e(child_env, *cmd, pgroup: true) do |stdin, out, wait|
     stdin.close
-    output = +""
-    begin
-      Timeout.timeout(timeout) { output << out.read }
-    rescue Timeout::Error
-      terminate(wait.pid)
-      return ["#{output}\n[killed: exceeded #{timeout}s]", nil]
-    end
-    [output, wait.value]
+    supervise(out, wait, limit)
   end
+end
+
+def supervise(out, wait, limit)
+  buffer = +""
+  reader = Thread.new { drain(out, buffer) }
+  return [text(buffer), wait.value] if finished_within?(limit, wait, reader)
+
+  terminate(wait.pid)
+  reader.join(POLL)
+  reader.kill
+  ["#{text(buffer)}\n[killed: exceeded #{limit}s]", nil]
 end
 ```
 
+A reader thread drains combined stdout+stderr into a buffer while
+`finished_within?` waits on the process. The run counts as finished only when
+the process has exited **and** its output has reached EOF inside the limit,
+so neither a script that closes its output and keeps running nor a
+background child left holding the pipe escapes the bound.
+
 On expiry, `terminate` sends `SIGTERM` to the whole process **group**
-(`Process.kill('-TERM', ...)` against `Process.getpgid(pid)`), so a script
-that spawned children takes them down with it, and swallows any error — a
-process that already exited by the time `terminate` runs is not an error. A
-`nil` status return value is `ScriptTool.format_result`'s signal for
+(`Process.kill("TERM", -pid)` — `pgroup: true` makes the child its own group
+leader), so a script that spawned children takes them down with it. Anything
+still alive after `Executor::KILL_GRACE` (2 seconds) gets `SIGKILL`.
+`terminate` never raises — a group that is already gone is not an error —
+and refuses a pid of 1 or less. A process that leaves the group (`setsid`)
+is not reached by the kill; it remains inside the Seatbelt profile.
+
+A `nil` status return value is `ScriptTool.format_result`'s signal for
 `"Error (timed out):\n<output>"`, which is what the LLM sees; a `nil`
-status is never confused with a real (even nonzero) exit code.
+status is never confused with a real (even nonzero) exit code. `<output>` is
+whatever the script printed before the kill, followed by
+`"\n[killed: exceeded <timeout>s]"`.
+
+`Coerce.duration` keeps any positive, finite number and replaces anything
+else (`nil`, `true`, a list, a non-numeric string, zero or a negative) with
+the 60-second default, so a malformed timeout cannot crash the executor.
+`child_env` passes the real working directory as `PWD`: without it the shell
+calls `getcwd()`, which fails under Seatbelt because the working directory's
+ancestors are not readable, and prints a `shell-init: error retrieving
+current directory` line into the output. It grants no access.
 
 The timeout used is `grant.timeout` — the smaller of the skill's declared
 `timeout:` and the config ceiling's `sandbox.timeout` (see
 [Configuration](configuration.md#the-intersection)). This bound applies only
-because this gem is loaded; core alone never times a script out.
+when this gem is loaded and sandboxing is enabled; core alone (or this gem
+with `sandbox.enabled: false`) never times a script out.
 
 ## Extension Registration
 

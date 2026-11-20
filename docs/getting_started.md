@@ -68,6 +68,9 @@ or via environment variables:
 export ROBOT_LAB_SANDBOX__ENABLED=true
 ```
 
+Environment variables arrive as strings; see
+[Configuration](configuration.md#the-sandbox-ceiling) for the accepted forms.
+
 If `robot_lab` has not been loaded yet, `require "robot_lab/sandbox"` raises
 `RobotLab::Sandbox::Error` ("robot_lab must be loaded before robot_lab/sandbox").
 
@@ -91,7 +94,7 @@ tool = RobotLab::ScriptTool.from_path(
   skill_dir: "./skills/cleanup"
 )
 
-puts tool.call({}) # runs confined on macOS, unconfined (with a warning) elsewhere
+puts tool.call # runs confined on macOS, unconfined (with a warning) elsewhere
 ```
 
 In practice you won't call `ScriptTool.from_path` directly — a discovered
@@ -106,6 +109,7 @@ for the end-to-end skill-bundle path.
 RobotLab.extension_loaded?(:sandbox)   # => true, once required
 RobotLab::ScriptTool.executor          # => RobotLab::Sandbox::Executor, or nil
 RobotLab::Sandbox.enabled?             # => reads config.sandbox.enabled
+RobotLab::Sandbox::Ceiling.build       # => the coerced ceiling, as a Capabilities
 RobotLab::Sandbox.macos?               # => RUBY_PLATFORM.include?("darwin")
 ```
 
@@ -118,4 +122,5 @@ RobotLab::Sandbox.macos?               # => RUBY_PLATFORM.include?("darwin")
   declaring `trust: core`, every script runs through the `Sandbox::Null`
   passthrough regardless of `sandbox.enabled`.
 - The declared `timeout:` (per-skill or the config ceiling) only takes effect
-  once this gem is loaded — core alone runs scripts with no timeout at all.
+  once this gem is loaded **and** `sandbox.enabled` is `true` — core alone, or
+  this gem with sandboxing off, runs scripts with no timeout at all.
