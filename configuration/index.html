@@ -741,7 +741,7 @@ ever have. <code>RobotLab::Capabilities</code> (defined in <code>robot_lab</code
 both sides and computes the intersection.</p>
 <h2 id="the-sandbox-ceiling">The <code>sandbox:</code> Ceiling<a class="headerlink" href="#the-sandbox-ceiling" title="Permanent link">&para;</a></h2>
 <p>Declared in <code>robot_lab</code> core's <code>config/defaults.yml</code>, read by
-<code>Capabilities.ceiling</code> and <code>Sandbox.enabled?</code>:</p>
+<code>Sandbox::Ceiling.build</code> and <code>Sandbox.enabled?</code>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">sandbox</span><span class="p">:</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">        </span><span class="c1"># opt-in; off = scripts run exactly as robot_lab core alone runs them</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">fs_read</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"."</span><span class="p p-Indicator">]</span><span class="w">        </span><span class="c1"># ceiling: paths any skill may read (relative to cwd)</span>
@@ -786,11 +786,50 @@ both sides and computes the intersection.</p>
 </tbody>
 </table>
 <p>Set these the same way as any other RobotLab config — a project's
-<code>./config/robot_lab.yml</code>, the user's <code>~/.config/robot_lab/config.yml</code>, or
+<code>./config/robot_lab.yml</code>, the user's <code>~/.config/robot_lab/robot_lab.yml</code>, or
 environment variables:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ROBOT_LAB_SANDBOX__ENABLED</span><span class="o">=</span><span class="nb">true</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ROBOT_LAB_SANDBOX__NETWORK</span><span class="o">=</span><span class="nb">true</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ROBOT_LAB_SANDBOX__FS_WRITE</span><span class="o">=</span>./tmp,./out
 </span></code></pre></div>
+<p>Environment variables arrive as strings, so this gem coerces every value it
+reads (<code>Sandbox::Coerce</code>) and takes the more restrictive reading when a value
+is unclear:</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Accepted forms</th>
+<th>Anything else</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>enabled</code></td>
+<td>on: <code>true</code> <code>1</code> <code>yes</code> <code>on</code> <code>y</code> <code>t</code>; off: <code>false</code> <code>0</code> <code>no</code> <code>off</code> <code>n</code> <code>f</code>, empty, unset (case-insensitive)</td>
+<td>confinement <strong>on</strong></td>
+</tr>
+<tr>
+<td><code>network</code></td>
+<td>same words</td>
+<td>network <strong>denied</strong></td>
+</tr>
+<tr>
+<td><code>fs_read</code> / <code>fs_write</code></td>
+<td>a YAML list, or a comma-separated string</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>a positive whole number of seconds (<code>30</code>, <code>"30"</code>)</td>
+<td>the default, <code>60</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>RobotLab::Sandbox::Ceiling.build</code> returns the resulting ceiling. Core's own
+<code>RobotLab::Capabilities.ceiling</code> does <strong>not</strong> coerce — it reads
+<code>ROBOT_LAB_SANDBOX__NETWORK=false</code> as network <em>allowed</em> — so don't use it to
+inspect what this gem enforces.</p>
 <p>This section exists in <code>robot_lab</code> core whether or not <code>robot_lab-sandbox</code> is
 loaded — core just doesn't act on it. Without this gem, scripts always run
 unconfined no matter what these values say.</p>
@@ -808,9 +847,11 @@ alongside <code>name</code>/<code>description</code>:</p>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="gu">---</span>
 </span></code></pre></div>
 <p><code>AgentSkill</code> parses this into a <code>Capabilities</code> object via
-<code>Capabilities.from_front_matter</code> — every value is normalized and defaulted,
-so a malformed or partial declaration degrades to the safe default rather
-than raising.</p>
+<code>Capabilities.from_front_matter</code> — values are normalized and defaulted, so a
+malformed or partial declaration generally degrades to the safe default.
+One exception lives in core and is not fixable from this gem: a <code>timeout</code>
+that has no <code>to_i</code> (<code>timeout: true</code>, or a list) raises <code>NoMethodError</code> when
+the skill is loaded.</p>
 <table>
 <thead>
 <tr>
@@ -855,7 +896,9 @@ than raising.</p>
 </table>
 <h2 id="the-intersection">The Intersection<a class="headerlink" href="#the-intersection" title="Permanent link">&para;</a></h2>
 <p>The script actually runs under the <strong>intersection</strong> of the skill's declared
-<code>Capabilities</code> and the <code>sandbox:</code> ceiling — computed by <code>Capabilities#intersect</code>:</p>
+<code>Capabilities</code> and the <code>sandbox:</code> ceiling — computed by
+<code>Sandbox::Grant.resolve</code>, which applies core's <code>Capabilities#intersect</code> and
+then a symlink-resolved check on every path:</p>
 <table>
 <thead>
 <tr>
@@ -866,7 +909,7 @@ than raising.</p>
 <tbody>
 <tr>
 <td><code>fs_read</code> / <code>fs_write</code></td>
-<td>A requested path survives only when it <strong>is</strong> a ceiling root or lives beneath one. Both sides are <code>File.expand_path</code>ed first, so <code>~</code> and relative paths resolve before comparison.</td>
+<td>A requested path survives only when it <strong>is</strong> a ceiling root or lives beneath one. Both sides are <code>File.expand_path</code>ed first, so <code>~</code> and relative paths resolve before comparison. The path must then pass a second time with symlinks resolved on both sides (<code>File.realpath</code>): a path under the ceiling that is, or passes through, a symlink leading outside it is dropped, as is one that cannot be resolved (a symlink loop, a dangling symlink).</td>
 </tr>
 <tr>
 <td><code>network</code></td>
@@ -882,12 +925,17 @@ than raising.</p>
 </tr>
 </tbody>
 </table>
-<p>So a ceiling of <code>fs_read: ["."]</code> grants nothing outside the working directory
-even if a skill's front matter asks for <code>/etc</code>. And a skill that doesn't
+<p>So a ceiling of <code>fs_read: ["."]</code> drops a skill's request for anything outside
+the working directory — a front-matter <code>fs_read: ["~/.ssh"]</code> grants nothing.
+(The ceiling only clamps what a skill <em>adds</em>: the Seatbelt profile's fixed
+system read paths — <code>/usr</code>, <code>/bin</code>, <code>/sbin</code>, <code>/System</code>, <code>/Library</code>, <code>/opt</code>,
+<code>/private/etc</code>, <code>/dev</code>, <code>/var/select</code> — and the skill's own directory are
+readable no matter what the ceiling says, see
+<a href="../how_it_works/#the-generated-profile">How It Works</a>.) And a skill that doesn't
 declare <code>network: true</code> gets no network access no matter how permissive the
 ceiling is.</p>
 <div class="language-ruby highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">declared</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Capabilities</span><span class="o">.</span><span class="n">from_front_matter</span><span class="p">(</span><span class="n">skill_front_matter</span><span class="p">)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">grant</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="n">declared</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Capabilities</span><span class="o">.</span><span class="n">ceiling</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">grant</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Grant</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">declared</span><span class="p">,</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Ceiling</span><span class="o">.</span><span class="n">build</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="trust-core-bypassing-confinement"><code>trust: core</code> — Bypassing Confinement<a class="headerlink" href="#trust-core-bypassing-confinement" title="Permanent link">&para;</a></h2>
 <p>A skill declaring <code>trust: core</code> is exempt from OS-level confinement
@@ -895,7 +943,8 @@ entirely — <code>Sandbox.for</code> always returns <code>Sandbox::Null</code> 
 platform, regardless of the <code>sandbox:</code> ceiling or <code>sandbox.enabled</code>. Reserve
 this for skill bundles you wrote and audited yourself; it is not something a
 skill should be able to grant itself casually, since it opts the script out
-of every protection this gem provides.</p>
+of every confinement protection this gem provides (only the <code>timeout</code> bound
+still applies).</p>
 <h2 id="what-changes-when-this-gem-isnt-loaded">What Changes When This Gem Isn't Loaded<a class="headerlink" href="#what-changes-when-this-gem-isnt-loaded" title="Permanent link">&para;</a></h2>
 <p>Nothing about <code>Capabilities</code> or the <code>sandbox:</code> config schema depends on
 <code>robot_lab-sandbox</code> — they live in core. What's missing without this gem is

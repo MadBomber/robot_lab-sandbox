@@ -955,24 +955,27 @@ that knows anything about sandboxing.</p>
 executor does with <code>capabilities</code> or how — or whether — it bounds execution
 time; that's this gem's job from here down.</p>
 <h2 id="sandboxexecutor-what-actually-runs"><code>Sandbox::Executor</code> — What Actually Runs<a class="headerlink" href="#sandboxexecutor-what-actually-runs" title="Permanent link">&para;</a></h2>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nc">self</span><span class="o">.</span><span class="nf">call</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="ss">capabilities</span><span class="p">:,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:)</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="k">unless</span><span class="w"> </span><span class="no">Sandbox</span><span class="o">.</span><span class="n">enabled?</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">Open3</span><span class="o">.</span><span class="n">capture2e</span><span class="p">(</span><span class="o">*</span><span class="n">cmd</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">ScriptTool</span><span class="o">.</span><span class="n">format_result</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="k">end</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="n">grant</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="n">capabilities</span><span class="o">.</span><span class="n">intersect</span><span class="p">(</span><span class="no">Capabilities</span><span class="o">.</span><span class="n">ceiling</span><span class="p">)</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="n">sandbox</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">Sandbox</span><span class="o">.</span><span class="n">for</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="n">skill_dir</span><span class="p">)</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="k">begin</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_with_timeout</span><span class="p">(</span><span class="n">sandbox</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">cmd</span><span class="p">),</span><span class="w"> </span><span class="n">grant</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">ScriptTool</span><span class="o">.</span><span class="n">format_result</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="p">)</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">  </span><span class="k">ensure</span>
-</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="n">sandbox</span><span class="o">.</span><span class="n">cleanup</span>
-</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="k">end</span>
-</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kp">module_function</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">call</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="ss">capabilities</span><span class="p">:,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="k">unless</span><span class="w"> </span><span class="no">Sandbox</span><span class="o">.</span><span class="n">enabled?</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">Open3</span><span class="o">.</span><span class="n">capture2e</span><span class="p">(</span><span class="o">*</span><span class="n">cmd</span><span class="p">)</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">ScriptTool</span><span class="o">.</span><span class="n">format_result</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="p">)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">  </span><span class="k">end</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">  </span><span class="n">grant</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="no">Grant</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">capabilities</span><span class="p">,</span><span class="w"> </span><span class="no">Ceiling</span><span class="o">.</span><span class="n">build</span><span class="p">)</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">  </span><span class="n">sandbox</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">Sandbox</span><span class="o">.</span><span class="n">for</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="n">skill_dir</span><span class="p">)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="k">begin</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">run_with_timeout</span><span class="p">(</span><span class="n">sandbox</span><span class="o">.</span><span class="n">wrap</span><span class="p">(</span><span class="n">cmd</span><span class="p">),</span><span class="w"> </span><span class="n">grant</span><span class="o">.</span><span class="n">timeout</span><span class="p">)</span>
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="w">    </span><span class="n">format_result</span><span class="p">(</span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">status</span><span class="p">)</span>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="w">  </span><span class="k">ensure</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="w">    </span><span class="n">sandbox</span><span class="o">.</span><span class="n">cleanup</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a><span class="w">  </span><span class="k">end</span>
+</span><span id="__span-3-17"><a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="k">end</span>
 </span></code></pre></div>
 <p>Two paths, gated by <code>Sandbox.enabled?</code> (which reads <code>config.sandbox.enabled</code>,
-default <code>false</code>):</p>
+default <code>false</code>, accepting the string forms an environment variable
+delivers — see <a href="../configuration/#the-sandbox-ceiling">Configuration</a>):</p>
 <ol>
 <li><strong>Disabled</strong> — identical to core's own unconfined path. Loading this gem
    with <code>sandbox.enabled: false</code> changes nothing observable.</li>
@@ -980,16 +983,20 @@ default <code>false</code>):</p>
    ∩ the config ceiling, see <a href="../configuration/#the-intersection">Configuration</a>),
    picks a strategy via <code>Sandbox.for</code>, wraps the command, runs it under a
    timeout, and always calls <code>sandbox.cleanup</code> in an <code>ensure</code> — even if the
-   run raised or timed out.</li>
+   run raised or timed out. <code>Executor.format_result</code> is core's
+   <code>ScriptTool.format_result</code> plus one case: a process that died from a
+   signal is reported as <code>"Error (killed by signal N):\n&lt;output&gt;"</code>.</li>
 </ol>
 <h2 id="strategy-selection-sandboxfor">Strategy Selection: <code>Sandbox.for</code><a class="headerlink" href="#strategy-selection-sandboxfor" title="Permanent link">&para;</a></h2>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nc">self</span><span class="o">.</span><span class="nf">for</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:,</span><span class="w"> </span><span class="ss">macos</span><span class="p">:</span><span class="w"> </span><span class="n">macos?</span><span class="p">)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="no">Null</span><span class="o">.</span><span class="n">new</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">grant</span><span class="o">.</span><span class="n">core?</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="no">Seatbelt</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="n">skill_dir</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">macos</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="n">warn_once_non_macos</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="no">Null</span><span class="o">.</span><span class="n">new</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="k">end</span>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kp">module_function</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">for</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:,</span><span class="w"> </span><span class="ss">macos</span><span class="p">:</span><span class="w"> </span><span class="n">macos?</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="no">Null</span><span class="o">.</span><span class="n">new</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">grant</span><span class="o">.</span><span class="n">core?</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="no">Seatbelt</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="n">skill_dir</span><span class="p">)</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">macos</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="n">warn_once_non_macos</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="no">Null</span><span class="o">.</span><span class="n">new</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">end</span>
 </span></code></pre></div>
 <p>Selection order:</p>
 <ol>
@@ -1051,21 +1058,30 @@ installed at all, except still bounded by <code>Executor</code>'s timeout.</p>
 </tbody>
 </table>
 <p><code>$HOME</code> is never in any of these lists — it is never implicitly readable.
+The exceptions are the skill directory itself (always granted, even when it
+lives under <code>$HOME</code>), file <em>metadata</em> (<code>file-read-metadata</code> is allowed on
+every path, so a confined script can <code>stat</code> any file but not read or list
+it), and whatever <code>bsd.sb</code> itself allows (e.g. <code>.CFUserTextEncoding</code>).
 See <a href="../troubleshooting/#interpreter-installed-under-home-is-invisible">Troubleshooting</a>
 for the direct consequence of that.</p>
 <h3 id="path-canonicalization">Path canonicalization<a class="headerlink" href="#path-canonicalization" title="Permanent link">&para;</a></h3>
 <p>Every path is resolved to its symlink-free real path before being written
 into the profile:</p>
 <div class="language-ruby highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">canonicalize</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nb">Array</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span><span class="o">.</span><span class="n">map</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">|</span><span class="nb">p</span><span class="o">|</span><span class="w"> </span><span class="n">real_path</span><span class="p">(</span><span class="no">File</span><span class="o">.</span><span class="n">expand_path</span><span class="p">(</span><span class="nb">p</span><span class="o">.</span><span class="n">to_s</span><span class="p">))</span><span class="w"> </span><span class="p">}</span><span class="o">.</span><span class="n">compact</span><span class="o">.</span><span class="n">uniq</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nb">Array</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span><span class="o">.</span><span class="n">filter_map</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="o">|</span><span class="nb">p</span><span class="o">|</span><span class="w"> </span><span class="no">Paths</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="nb">p</span><span class="p">)</span><span class="w"> </span><span class="p">}</span><span class="o">.</span><span class="n">uniq</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">end</span>
 </span></code></pre></div>
 <p>This matters because macOS symlinks <code>/tmp</code> → <code>/private/tmp</code>, <code>/var</code> →
 <code>/private/var</code>, etc. — the kernel matches Seatbelt rules against the <em>real</em>
 path, so a rule written against the logical <code>/tmp/...</code> path would silently
-never match. For a write target that doesn't exist yet, <code>real_path</code> walks up
+never match. For a write target that doesn't exist yet, <code>Paths.real</code> walks up
 to the nearest existing ancestor, resolves <em>that</em>, and re-appends the
-non-existent remainder.</p>
+non-existent remainder. A path that cannot be resolved (a symlink loop, a
+dangling symlink) yields <code>nil</code> and is left out of the profile.</p>
+<p>The same resolution guards the grant itself: <code>Grant.resolve</code> only keeps a
+declared path whose <em>real</em> location is inside a real ceiling root, so a
+symlink under the ceiling that points elsewhere is dropped before a profile
+is ever generated (see <a href="../configuration/#the-intersection">Configuration</a>).</p>
 <h3 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h3>
 <p><code>wrap</code> writes the profile via <code>Tempfile.create</code>; <code>cleanup</code> unlinks it and
 swallows any error (an already-removed file is fine). <code>Executor.call</code> always
@@ -1073,33 +1089,58 @@ calls <code>sandbox.cleanup</code> in an <code>ensure</code>, so a profile file 
 even when the script raises or times out.</p>
 <h2 id="timeout-enforcement">Timeout Enforcement<a class="headerlink" href="#timeout-enforcement" title="Permanent link">&para;</a></h2>
 <p><code>Executor.run_with_timeout(cmd, timeout)</code> runs the (possibly Seatbelt-wrapped)
-command in its own process group and reads combined stdout+stderr until
-<code>timeout</code> seconds elapse:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">def</span><span class="w"> </span><span class="nc">self</span><span class="o">.</span><span class="nf">run_with_timeout</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="n">timeout</span><span class="p">)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="no">Open3</span><span class="o">.</span><span class="n">popen2e</span><span class="p">(</span><span class="o">*</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="ss">pgroup</span><span class="p">:</span><span class="w"> </span><span class="kp">true</span><span class="p">)</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="o">|</span><span class="n">stdin</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">wait</span><span class="o">|</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="n">stdin</span><span class="o">.</span><span class="n">close</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="n">output</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">+</span><span class="s2">""</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">    </span><span class="k">begin</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">      </span><span class="no">Timeout</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">output</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">out</span><span class="o">.</span><span class="n">read</span><span class="w"> </span><span class="p">}</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="k">rescue</span><span class="w"> </span><span class="no">Timeout</span><span class="o">::</span><span class="no">Error</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">      </span><span class="n">terminate</span><span class="p">(</span><span class="n">wait</span><span class="o">.</span><span class="n">pid</span><span class="p">)</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">      </span><span class="k">return</span><span class="w"> </span><span class="o">[</span><span class="s2">"</span><span class="si">#{</span><span class="n">output</span><span class="si">}</span><span class="se">\n</span><span class="s2">[killed: exceeded </span><span class="si">#{</span><span class="n">timeout</span><span class="si">}</span><span class="s2">s]"</span><span class="p">,</span><span class="w"> </span><span class="kp">nil</span><span class="o">]</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">    </span><span class="k">end</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="w">    </span><span class="o">[</span><span class="n">output</span><span class="p">,</span><span class="w"> </span><span class="n">wait</span><span class="o">.</span><span class="n">value</span><span class="o">]</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="k">end</span>
-</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="k">end</span>
+command in its own process group and bounds the <strong>whole execution</strong> — the
+process itself, not just its output — at <code>timeout</code> seconds:</p>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kp">module_function</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_with_timeout</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="n">timeout</span><span class="p">)</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="n">limit</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">Coerce</span><span class="o">.</span><span class="n">duration</span><span class="p">(</span><span class="n">timeout</span><span class="p">)</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="no">Open3</span><span class="o">.</span><span class="n">popen2e</span><span class="p">(</span><span class="n">child_env</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="n">cmd</span><span class="p">,</span><span class="w"> </span><span class="ss">pgroup</span><span class="p">:</span><span class="w"> </span><span class="kp">true</span><span class="p">)</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="o">|</span><span class="n">stdin</span><span class="p">,</span><span class="w"> </span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">wait</span><span class="o">|</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">    </span><span class="n">stdin</span><span class="o">.</span><span class="n">close</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">    </span><span class="n">supervise</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">wait</span><span class="p">,</span><span class="w"> </span><span class="n">limit</span><span class="p">)</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="k">end</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="k">end</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">supervise</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">wait</span><span class="p">,</span><span class="w"> </span><span class="n">limit</span><span class="p">)</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="w">  </span><span class="n">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">+</span><span class="s2">""</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="w">  </span><span class="n">reader</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">Thread</span><span class="o">.</span><span class="n">new</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">drain</span><span class="p">(</span><span class="n">out</span><span class="p">,</span><span class="w"> </span><span class="n">buffer</span><span class="p">)</span><span class="w"> </span><span class="p">}</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="o">[</span><span class="n">text</span><span class="p">(</span><span class="n">buffer</span><span class="p">),</span><span class="w"> </span><span class="n">wait</span><span class="o">.</span><span class="n">value</span><span class="o">]</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">finished_within?</span><span class="p">(</span><span class="n">limit</span><span class="p">,</span><span class="w"> </span><span class="n">wait</span><span class="p">,</span><span class="w"> </span><span class="n">reader</span><span class="p">)</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="w">  </span><span class="n">terminate</span><span class="p">(</span><span class="n">wait</span><span class="o">.</span><span class="n">pid</span><span class="p">)</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="w">  </span><span class="n">reader</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="no">POLL</span><span class="p">)</span>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="w">  </span><span class="n">reader</span><span class="o">.</span><span class="n">kill</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="w">  </span><span class="o">[</span><span class="s2">"</span><span class="si">#{</span><span class="n">text</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">[killed: exceeded </span><span class="si">#{</span><span class="n">limit</span><span class="si">}</span><span class="s2">s]"</span><span class="p">,</span><span class="w"> </span><span class="kp">nil</span><span class="o">]</span>
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a><span class="k">end</span>
 </span></code></pre></div>
+<p>A reader thread drains combined stdout+stderr into a buffer while
+<code>finished_within?</code> waits on the process. The run counts as finished only when
+the process has exited <strong>and</strong> its output has reached EOF inside the limit,
+so neither a script that closes its output and keeps running nor a
+background child left holding the pipe escapes the bound.</p>
 <p>On expiry, <code>terminate</code> sends <code>SIGTERM</code> to the whole process <strong>group</strong>
-(<code>Process.kill('-TERM', ...)</code> against <code>Process.getpgid(pid)</code>), so a script
-that spawned children takes them down with it, and swallows any error — a
-process that already exited by the time <code>terminate</code> runs is not an error. A
-<code>nil</code> status return value is <code>ScriptTool.format_result</code>'s signal for
+(<code>Process.kill("TERM", -pid)</code> — <code>pgroup: true</code> makes the child its own group
+leader), so a script that spawned children takes them down with it. Anything
+still alive after <code>Executor::KILL_GRACE</code> (2 seconds) gets <code>SIGKILL</code>.
+<code>terminate</code> never raises — a group that is already gone is not an error —
+and refuses a pid of 1 or less. A process that leaves the group (<code>setsid</code>)
+is not reached by the kill; it remains inside the Seatbelt profile.</p>
+<p>A <code>nil</code> status return value is <code>ScriptTool.format_result</code>'s signal for
 <code>"Error (timed out):\n&lt;output&gt;"</code>, which is what the LLM sees; a <code>nil</code>
-status is never confused with a real (even nonzero) exit code.</p>
+status is never confused with a real (even nonzero) exit code. <code>&lt;output&gt;</code> is
+whatever the script printed before the kill, followed by
+<code>"\n[killed: exceeded &lt;timeout&gt;s]"</code>.</p>
+<p><code>Coerce.duration</code> keeps any positive, finite number and replaces anything
+else (<code>nil</code>, <code>true</code>, a list, a non-numeric string, zero or a negative) with
+the 60-second default, so a malformed timeout cannot crash the executor.
+<code>child_env</code> passes the real working directory as <code>PWD</code>: without it the shell
+calls <code>getcwd()</code>, which fails under Seatbelt because the working directory's
+ancestors are not readable, and prints a <code>shell-init: error retrieving
+current directory</code> line into the output. It grants no access.</p>
 <p>The timeout used is <code>grant.timeout</code> — the smaller of the skill's declared
 <code>timeout:</code> and the config ceiling's <code>sandbox.timeout</code> (see
 <a href="../configuration/#the-intersection">Configuration</a>). This bound applies only
-because this gem is loaded; core alone never times a script out.</p>
+when this gem is loaded and sandboxing is enabled; core alone (or this gem
+with <code>sandbox.enabled: false</code>) never times a script out.</p>
 <h2 id="extension-registration">Extension Registration<a class="headerlink" href="#extension-registration" title="Permanent link">&para;</a></h2>
 <p><code>RobotLab.register_extension(:sandbox, RobotLab::Sandbox)</code> lets other code
 detect this gem is loaded without depending on it directly:</p>

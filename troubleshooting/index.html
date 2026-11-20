@@ -733,15 +733,18 @@
 
 <h1 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h1>
 <h2 id="interpreter-installed-under-home-is-invisible">Interpreter installed under <code>$HOME</code> is invisible<a class="headerlink" href="#interpreter-installed-under-home-is-invisible" title="Permanent link">&para;</a></h2>
-<p><strong>Symptom:</strong> a script fails immediately with something like
-<code>env: ruby: No such file or directory</code> or <code>bad interpreter</code>, but the same
-script runs fine with <code>sandbox.enabled: false</code>.</p>
+<p><strong>Symptom:</strong> a script fails as soon as it invokes its interpreter, with
+something like <code>ruby: Operation not permitted</code> (exit 126, e.g. an rbenv shim)
+or <code>Killed: 9</code> (exit 137, a compiled binary), but the same script runs fine
+with <code>sandbox.enabled: false</code>.</p>
 <p><strong>Cause:</strong> the generated Seatbelt profile never grants read access to
 <code>$HOME</code>, on purpose — that's what keeps SSH keys and cloud credentials out of
 reach of a confined script. But it also means any interpreter installed
 under <code>$HOME</code> (rbenv, asdf, mise, a Homebrew prefix under <code>~</code>, <code>~/.gem</code>, a
-project-local <code>bundle</code> path under <code>~/.bundle</code>) is invisible to the sandboxed
-process, and the script can't even start.</p>
+project-local <code>bundle</code> path under <code>~/.bundle</code>) is unreadable to the sandboxed
+process. The skill script itself still starts — <code>ScriptTool</code> always runs it
+as <code>bash &lt;script&gt;</code>, ignoring its shebang — but the first command that lives
+under <code>$HOME</code> cannot be loaded.</p>
 <p><strong>Fix:</strong> either</p>
 <ul>
 <li>Grant the interpreter's install path explicitly in the skill's <code>fs_read</code>:
@@ -754,41 +757,52 @@ process, and the script can't even start.</p>
 </ul>
 <h2 id="a-path-i-granted-is-still-denied">A path I granted is still denied<a class="headerlink" href="#a-path-i-granted-is-still-denied" title="Permanent link">&para;</a></h2>
 <p><strong>Symptom:</strong> a script writes to (or reads from) a path you declared in
-<code>fs_write</code>/<code>fs_read</code>, but the write silently fails or the read comes back
-empty, even though <code>sandbox.enabled: true</code> and the skill's front matter
+<code>fs_write</code>/<code>fs_read</code>, but the write or read fails with <code>Operation not permitted</code>
+(or comes back empty if the script discards errors), even though <code>sandbox.enabled: true</code> and the skill's front matter
 looks right.</p>
 <p><strong>Checklist:</strong></p>
 <ol>
 <li><strong>Is the path inside the config ceiling?</strong> The effective grant is the
    <em>intersection</em> of what the skill declares and <code>config.sandbox.fs_read</code>/
    <code>fs_write</code> — a path outside every ceiling root is dropped silently, even
-   if the skill asks for it. Check <code>RobotLab::Capabilities.ceiling.fs_read</code>
+   if the skill asks for it. Check <code>RobotLab::Sandbox::Ceiling.build.fs_read</code>
    / <code>.fs_write</code> in a console.</li>
 <li><strong>Is it a symlinked path?</strong> macOS symlinks <code>/tmp</code> → <code>/private/tmp</code>,
    <code>/var</code> → <code>/private/var</code>. The profile is generated against the resolved
    real path — if you're comparing against the logical path elsewhere (e.g.
    in a test assertion), resolve it with <code>File.realpath</code> first. See
    <a href="../how_it_works/#path-canonicalization">How It Works — Path canonicalization</a>.</li>
+<li><strong>Does the path leave the ceiling through a symlink?</strong> A granted path is
+   kept only when its <em>real</em> location is inside a real ceiling root. A
+   symlink under the working directory that points somewhere else is
+   dropped, and so is a symlink loop or a dangling symlink. Grant the real
+   target, and make sure the ceiling covers it.</li>
 <li><strong>Does the path exist yet, for a write target?</strong> Canonicalization walks up
    to the nearest existing ancestor to resolve symlinks, then re-appends the
-   rest — if an intermediate directory in the path doesn't exist and is
-   <em>itself</em> a symlink once created, the grant can end up pointing at the
-   wrong real path. Prefer granting an existing parent directory over a
+   rest — if an intermediate directory is later created as a symlink, the
+   kernel resolves it and the write lands outside the granted path, so it
+   is denied. Prefer granting an existing parent directory over a
    not-yet-created nested path.</li>
 <li><strong>Is <code>trust: core</code> set?</strong> A <code>core</code> skill bypasses the sandbox entirely —
    if you're debugging a <em>denial</em> and the skill is <code>trust: core</code>, the
    sandbox isn't involved at all; look elsewhere (permissions, the script
    itself).</li>
 </ol>
-<p>You can inspect the exact profile a grant produces without running anything:</p>
-<div class="language-ruby highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">grant</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Capabilities</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">fs_read</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="s2">"./data"</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="ss">fs_write</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="s2">"./out"</span><span class="o">]</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">puts</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Seatbelt</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="s2">"./skills/example"</span><span class="p">)</span><span class="o">.</span><span class="n">profile_text</span>
+<p>You can inspect the exact profile a skill's declaration produces without
+running anything:</p>
+<div class="language-ruby highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">declared</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Capabilities</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="ss">fs_read</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="s2">"./data"</span><span class="o">]</span><span class="p">,</span><span class="w"> </span><span class="ss">fs_write</span><span class="p">:</span><span class="w"> </span><span class="o">[</span><span class="s2">"./out"</span><span class="o">]</span><span class="p">)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">grant</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Grant</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">declared</span><span class="p">,</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Ceiling</span><span class="o">.</span><span class="n">build</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="nb">puts</span><span class="w"> </span><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Seatbelt</span><span class="o">.</span><span class="n">new</span><span class="p">(</span><span class="n">grant</span><span class="p">,</span><span class="w"> </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="s2">"./skills/example"</span><span class="p">)</span><span class="o">.</span><span class="n">profile_text</span>
 </span></code></pre></div>
 <h2 id="nothing-is-confined-even-with-sandboxenabled-true">Nothing is confined, even with <code>sandbox.enabled: true</code><a class="headerlink" href="#nothing-is-confined-even-with-sandboxenabled-true" title="Permanent link">&para;</a></h2>
 <p><strong>Symptom:</strong> scripts still behave as if sandboxing were off — no denials,
 no warnings, everything just works as before.</p>
 <p><strong>Checklist:</strong></p>
 <ol>
+<li><strong>Is <code>RobotLab::Sandbox.enabled?</code> actually true?</strong> Check it in a console
+   rather than trusting the config file — it is the exact test the executor
+   uses. <code>true</code>/<code>1</code>/<code>yes</code>/<code>on</code> (as a boolean or an env-var string) turn it
+   on; <code>false</code>/<code>0</code>/<code>no</code>/<code>off</code>, empty, or unset leave it off.</li>
 <li><strong>Is <code>robot_lab/sandbox</code> actually required?</strong> <code>require "robot_lab/sandbox"</code>
    must run <em>after</em> <code>require "robot_lab"</code>. Check:
    <div class="language-ruby highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">ScriptTool</span><span class="o">.</span><span class="n">executor</span><span class="w">  </span><span class="c1"># nil means this gem was never loaded</span>
@@ -805,6 +819,12 @@ run is bounded by the effective grant's <code>timeout</code> — the smaller of 
 skill's declared <code>timeout:</code> and <code>config.sandbox.timeout</code> (default <code>60</code>).
 Core alone never enforced a timeout at all, so a slow script that worked
 fine before can now hit this for the first time.</p>
+<p>The bound covers the whole run, not just its output: on expiry the script's
+process group gets <code>SIGTERM</code>, then <code>SIGKILL</code> two seconds later if anything
+is still alive. What the script printed before the kill is returned ahead of
+the <code>[killed: exceeded Ns]</code> marker. A process that leaves the group
+(<code>setsid</code>) is not reached by the kill, though it stays inside the Seatbelt
+profile.</p>
 <p><strong>Fix:</strong> raise the skill's declared <code>timeout:</code> in its <code>SKILL.md</code> front
 matter, and/or raise the config ceiling's <code>sandbox.timeout</code> — whichever is
 currently the smaller (and therefore binding) value.</p>

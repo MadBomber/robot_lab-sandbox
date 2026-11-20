@@ -802,6 +802,8 @@ anything.</p>
 <p>or via environment variables:</p>
 <div class="language-sh highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ROBOT_LAB_SANDBOX__ENABLED</span><span class="o">=</span><span class="nb">true</span>
 </span></code></pre></div>
+<p>Environment variables arrive as strings; see
+<a href="../configuration/#the-sandbox-ceiling">Configuration</a> for the accepted forms.</p>
 <p>If <code>robot_lab</code> has not been loaded yet, <code>require "robot_lab/sandbox"</code> raises
 <code>RobotLab::Sandbox::Error</code> ("robot_lab must be loaded before robot_lab/sandbox").</p>
 <h2 id="minimal-example">Minimal Example<a class="headerlink" href="#minimal-example" title="Permanent link">&para;</a></h2>
@@ -822,7 +824,7 @@ anything.</p>
 </span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="w">  </span><span class="ss">skill_dir</span><span class="p">:</span><span class="w"> </span><span class="s2">"./skills/cleanup"</span>
 </span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="p">)</span>
 </span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>
-</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="nb">puts</span><span class="w"> </span><span class="n">tool</span><span class="o">.</span><span class="n">call</span><span class="p">({})</span><span class="w"> </span><span class="c1"># runs confined on macOS, unconfined (with a warning) elsewhere</span>
+</span><span id="__span-6-18"><a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="nb">puts</span><span class="w"> </span><span class="n">tool</span><span class="o">.</span><span class="n">call</span><span class="w"> </span><span class="c1"># runs confined on macOS, unconfined (with a warning) elsewhere</span>
 </span></code></pre></div>
 <p>In practice you won't call <code>ScriptTool.from_path</code> directly — a discovered
 <code>AgentSkill</code> builds its own <code>script_tools</code> from its <code>SKILL.md</code> front matter
@@ -833,7 +835,8 @@ for the end-to-end skill-bundle path.</p>
 <div class="language-ruby highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="no">RobotLab</span><span class="o">.</span><span class="n">extension_loaded?</span><span class="p">(</span><span class="ss">:sandbox</span><span class="p">)</span><span class="w">   </span><span class="c1"># =&gt; true, once required</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">ScriptTool</span><span class="o">.</span><span class="n">executor</span><span class="w">          </span><span class="c1"># =&gt; RobotLab::Sandbox::Executor, or nil</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">.</span><span class="n">enabled?</span><span class="w">             </span><span class="c1"># =&gt; reads config.sandbox.enabled</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">.</span><span class="n">macos?</span><span class="w">               </span><span class="c1"># =&gt; RUBY_PLATFORM.include?("darwin")</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">::</span><span class="no">Ceiling</span><span class="o">.</span><span class="n">build</span><span class="w">       </span><span class="c1"># =&gt; the coerced ceiling, as a Capabilities</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="no">RobotLab</span><span class="o">::</span><span class="no">Sandbox</span><span class="o">.</span><span class="n">macos?</span><span class="w">               </span><span class="c1"># =&gt; RUBY_PLATFORM.include?("darwin")</span>
 </span></code></pre></div>
 <h2 id="key-constraints">Key Constraints<a class="headerlink" href="#key-constraints" title="Permanent link">&para;</a></h2>
 <ul>
@@ -844,7 +847,8 @@ for the end-to-end skill-bundle path.</p>
   declaring <code>trust: core</code>, every script runs through the <code>Sandbox::Null</code>
   passthrough regardless of <code>sandbox.enabled</code>.</li>
 <li>The declared <code>timeout:</code> (per-skill or the config ceiling) only takes effect
-  once this gem is loaded — core alone runs scripts with no timeout at all.</li>
+  once this gem is loaded <strong>and</strong> <code>sandbox.enabled</code> is <code>true</code> — core alone, or
+  this gem with sandboxing off, runs scripts with no timeout at all.</li>
 </ul>
 
 
